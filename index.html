@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catatan Keuangan Pribadi</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root{
+    --bg:#F1F3EF;
+    --surface:#FFFFFF;
+    --surface-2:#E9EDE7;
+    --ink:#16231C;
+    --ink-soft:#4B564E;
+    --muted:#8A9088;
+    --border:#DEE3D9;
+    --primary:#1B4332;
+    --primary-light:#2D6A4F;
+    --gold:#B8860B;
+    --gold-soft:#F3E7C9;
+    --coral:#B0413E;
+    --coral-soft:#F5DEDC;
+    --radius:10px;
+    --font-display:'Fraunces', serif;
+    --font-body:'IBM Plex Sans', sans-serif;
+    --sidebar-w:220px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:var(--font-body);
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+
+  .layout{display:flex; min-height:100vh;}
+
+  .sidebar{
+    width:var(--sidebar-w);
+    background:var(--primary);
+    color:#EDF3EE;
+    padding:28px 20px;
+    flex-shrink:0;
+    position:sticky;
+    top:0;
+    height:100vh;
+  }
+  .brand{
+    font-family:var(--font-display);
+    font-size:20px;
+    font-weight:600;
+    letter-spacing:0.2px;
+    margin-bottom:6px;
+  }
+  .brand-sub{
+    font-size:12px;
+    color:#B9CFC0;
+    margin-bottom:32px;
+  }
+  .nav{list-style:none; display:flex; flex-direction:column; gap:2px;}
+  .nav-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:14px;
+    color:#CFE0D5;
+    cursor:pointer;
+    transition:background 0.15s ease, color 0.15s ease;
+  }
+  .nav-item:hover{background:rgba(255,255,255,0.08); color:#fff;}
+  .nav-item.active{background:rgba(255,255,255,0.14); color:#fff; font-weight:500;}
+  .nav-dot{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:0.6; flex-shrink:0;}
+
+  .sidebar-foot{
+    margin-top:40px;
+    padding-top:16px;
+    border-top:1px solid rgba(255,255,255,0.12);
+    font-size:11px;
+    color:#8FAB9B;
+    line-height:1.6;
+  }
+
+  .main{flex:1; padding:36px 44px; max-width:1180px;}
+
+  .page-header{margin-bottom:28px;}
+  .page-header h1{
+    font-family:var(--font-display);
+    font-size:28px;
+    font-weight:600;
+    color:var(--primary);
+  }
+  .page-header p{font-size:13px; color:var(--muted); margin-top:4px;}
+
+  #status-banner{
+    display:none;
+    background:var(--coral-soft);
+    color:var(--coral);
+    border:1px solid #E3BDB9;
+    border-radius:var(--radius);
+    padding:14px 18px;
+    font-size:13px;
+    margin-bottom:24px;
+    line-height:1.5;
+  }
+  #status-banner code{background:rgba(0,0,0,0.06); padding:1px 5px; border-radius:4px; font-size:12px;}
+
+  section{display:none;}
+  section.active{display:block;}
+
+  .hero-row{
+    display:grid;
+    grid-template-columns:1.3fr 1fr 1fr;
+    gap:16px;
+    margin-bottom:28px;
+  }
+  .hero-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+  }
+  .hero-card .label{font-size:12px; color:var(--muted); margin-bottom:8px;}
+  .hero-card .value{
+    font-family:var(--font-display);
+    font-size:32px;
+    font-weight:600;
+    color:var(--primary);
+    line-height:1.1;
+  }
+  .hero-card.income .value{color:var(--gold);}
+  .hero-card.expense .value{color:var(--coral);}
+  .hero-card .sub{font-size:12px; color:var(--ink-soft); margin-top:8px;}
+
+  .panel{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px 24px;
+    margin-bottom:20px;
+  }
+  .panel-title{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:600;
+    color:var(--primary);
+    margin-bottom:16px;
+  }
+
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+
+  .filter-row{display:flex; gap:10px; align-items:center; margin-bottom:20px; flex-wrap:wrap;}
+  .filter-row label{font-size:12px; color:var(--ink-soft);}
+  .filter-row select, .filter-row input{
+    font-family:var(--font-body);
+    font-size:13px;
+    padding:7px 10px;
+    border-radius:7px;
+    border:1px solid var(--border);
+    background:var(--surface);
+    color:var(--ink);
+  }
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    text-align:left;
+    font-weight:500;
+    color:var(--muted);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.4px;
+    padding:8px 10px;
+    border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:10px 10px; border-bottom:1px solid var(--surface-2);}
+  tbody tr:hover{background:var(--surface-2);}
+  .tag{
+    display:inline-block;
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:100px;
+    font-weight:500;
+  }
+  .tag.in{background:var(--gold-soft); color:#8A6A08;}
+  .tag.out{background:var(--coral-soft); color:var(--coral);}
+  .amt{font-variant-numeric:tabular-nums; text-align:right;}
+  .amt.in{color:#8A6A08;}
+  .amt.out{color:var(--coral);}
+
+  .legend-row{display:flex; flex-wrap:wrap; gap:14px; margin-bottom:14px; font-size:12px; color:var(--ink-soft);}
+  .legend-row span{display:flex; align-items:center; gap:6px;}
+  .legend-row .sw{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  .chart-wrap{position:relative; width:100%; height:280px;}
+  .chart-wrap.tall{height:320px;}
+
+  .empty-note{font-size:13px; color:var(--muted); padding:30px 0; text-align:center;}
+
+  @media (max-width:900px){
+    .layout{flex-direction:column;}
+    .sidebar{width:100%; height:auto; position:relative; padding:18px 20px;}
+    .nav{flex-direction:row; overflow-x:auto;}
+    .sidebar-foot{display:none;}
+    .main{padding:24px 20px;}
+    .hero-row, .two-col{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand">Catatan Keuangan</div>
+    <div class="brand-sub">Ringkasan pemasukan &amp; pengeluaran</div>
+    <ul class="nav">
+      <li class="nav-item active" data-target="ringkasan"><span class="nav-dot"></span>Ringkasan</li>
+      <li class="nav-item" data-target="kategori"><span class="nav-dot"></span>Kategori</li>
+      <li class="nav-item" data-target="tren"><span class="nav-dot"></span>Tren bulanan</li>
+      <li class="nav-item" data-target="transaksi"><span class="nav-dot"></span>Transaksi</li>
+    </ul>
+    <div class="sidebar-foot">
+      Data diambil langsung dari Google Sheets. Perbarui sheet, muat ulang halaman ini untuk melihat angka terbaru.
+    </div>
+  </nav>
+
+  <main class="main">
+    <div id="status-banner"></div>
+
+    <section id="ringkasan" class="active">
+      <div class="page-header">
+        <h1>Ringkasan keuangan</h1>
+        <p id="ringkasan-sub">Berdasarkan seluruh transaksi tercatat</p>
+      </div>
+
+      <div class="hero-row">
+        <div class="hero-card">
+          <div class="label">Saldo saat ini</div>
+          <div class="value" id="stat-saldo">Rp0</div>
+          <div class="sub" id="stat-saldo-sub">&nbsp;</div>
+        </div>
+        <div class="hero-card income">
+          <div class="label">Total pemasukan</div>
+          <div class="value" id="stat-in">Rp0</div>
+          <div class="sub" id="stat-in-count">0 transaksi</div>
+        </div>
+        <div class="hero-card expense">
+          <div class="label">Total pengeluaran</div>
+          <div class="value" id="stat-out">Rp0</div>
+          <div class="sub" id="stat-out-count">0 transaksi</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title">Pengeluaran per kategori</div>
+          <div class="legend-row" id="legend-kategori-mini"></div>
+          <div class="chart-wrap"><canvas id="chartKategoriMini" role="img" aria-label="Diagram donat proporsi pengeluaran per kategori"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Transaksi terbaru</div>
+          <table>
+            <thead><tr><th>Tanggal</th><th>Kategori</th><th style="text-align:right">Jumlah</th></tr></thead>
+            <tbody id="tbl-recent"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="kategori">
+      <div class="page-header">
+        <h1>Rincian kategori</h1>
+        <p>Distribusi pemasukan dan pengeluaran per kategori</p>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title">Pengeluaran per kategori</div>
+          <div class="legend-row" id="legend-kategori-out"></div>
+          <div class="chart-wrap tall"><canvas id="chartKategoriOut" role="img" aria-label="Diagram batang pengeluaran per kategori"></canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Pemasukan per kategori</div>
+          <div class="legend-row" id="legend-kategori-in"></div>
+          <div class="chart-wrap tall"><canvas id="chartKategoriIn" role="img" aria-label="Diagram batang pemasukan per kategori"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tren">
+      <div class="page-header">
+        <h1>Tren bulanan</h1>
+        <p>Pemasukan vs pengeluaran sepanjang tahun tercatat</p>
+      </div>
+      <div class="panel">
+        <div class="legend-row" id="legend-tren"></div>
+        <div class="chart-wrap tall"><canvas id="chartTren" role="img" aria-label="Diagram garis tren pemasukan dan pengeluaran per bulan"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-title">Saldo berjalan</div>
+        <div class="chart-wrap tall"><canvas id="chartSaldo" role="img" aria-label="Diagram garis saldo berjalan dari waktu ke waktu"></canvas></div>
+      </div>
+    </section>
+
+    <section id="transaksi">
+      <div class="page-header">
+        <h1>Semua transaksi</h1>
+        <p>Cari dan saring seluruh riwayat transaksi</p>
+      </div>
+      <div class="panel">
+        <div class="filter-row">
+          <label>Jenis</label>
+          <select id="f-jenis">
+            <option value="">Semua</option>
+            <option value="Pemasukan">Pemasukan</option>
+            <option value="Pengeluaran">Pengeluaran</option>
+          </select>
+          <label>Kategori</label>
+          <select id="f-kategori"><option value="">Semua</option></select>
+          <label>Cari</label>
+          <input type="text" id="f-search" placeholder="Cari deskripsi...">
+        </div>
+        <table>
+          <thead>
+            <tr><th>Tanggal</th><th>Jenis</th><th>Kategori</th><th>Deskripsi</th><th style="text-align:right">Jumlah</th><th>Metode</th></tr>
+          </thead>
+          <tbody id="tbl-all"></tbody>
+        </table>
+        <div class="empty-note" id="empty-note" style="display:none;">Tidak ada transaksi yang cocok.</div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+  // ============================================================
+  // KONFIGURASI: ganti URL ini dengan link CSV hasil publish sheet
+  // "Transaksi" (File > Share > Publish to web > pilih sheet Transaksi
+  // > format CSV). Contoh formatnya:
+  // https://docs.google.com/spreadsheets/d/e/2PACX-XXXXXXX/pub?gid=0&single=true&output=csv
+  // ============================================================
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTTOjzkfr2uQRzLlwWztNcr84W86rYMNB4BdNaQACJn2DXOTjmljGtyJeJEfYhDr5dhjSLf9CJJ6LGg/pub?gid=539195214&single=true&output=csv";
+
+  const COLORS = {
+    primary: "#1B4332",
+    primaryLight: "#2D6A4F",
+    gold: "#B8860B",
+    coral: "#B0413E",
+    muted: "#8A9088",
+  };
+  const CATEGORY_PALETTE = ["#1B4332","#2D6A4F","#B8860B","#B0413E","#5C7A6E","#D2A441","#7A9E8E","#8C4A47","#4E6E5D","#C9A227"];
+
+  const rupiah = (n) => "Rp" + Math.round(n).toLocaleString("id-ID");
+
+  function parseTanggal(str){
+    if(!str) return null;
+    str = String(str).trim();
+    let m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(m){
+      // Google Sheets export CSV memakai format M/D/YYYY (bulan lebih dulu)
+      let a = parseInt(m[1]), b = parseInt(m[2]), y = parseInt(m[3]);
+      let month = a, day = b;
+      if(a > 12 && b <= 12){ month = b; day = a; } // fallback kalau ternyata D/M/YYYY
+      return new Date(y, month-1, day);
+    }
+    let d = new Date(str);
+    return isNaN(d) ? null : d;
+  }
+
+  function parseJumlah(val){
+    if(typeof val === "number") return val;
+    if(!val) return 0;
+    let cleaned = String(val).replace(/[^0-9.,-]/g, "").replace(/\./g, "").replace(",", ".");
+    let n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function showBanner(msg){
+    const b = document.getElementById("status-banner");
+    b.innerHTML = msg;
+    b.style.display = "block";
+  }
+
+  function loadData(){
+    if(!CSV_URL || CSV_URL.indexOf("PASTE_CSV_URL") === 0){
+      showBanner("Dashboard belum terhubung ke sumber data. Publikasikan sheet <code>Transaksi</code> sebagai CSV (File &gt; Share &gt; Publish to web), lalu tempel URL-nya ke variabel <code>CSV_URL</code> di bagian atas file ini.");
+      renderAll([]);
+      return;
+    }
+    Papa.parse(CSV_URL, {
+      download:true,
+      header:false,
+      skipEmptyLines:false,
+      complete:(res)=>{
+        const grid = res.data;
+        // Cari baris header tabel (kolom pertama = "Tanggal"), karena sheet
+        // punya baris judul di atasnya
+        const headerIdx = grid.findIndex(r => (r[0]||"").trim() === "Tanggal");
+        if(headerIdx === -1){
+          showBanner("Format sheet tidak dikenali. Pastikan kolom pertama sheet bernama <code>Tanggal</code>.");
+          renderAll([]);
+          return;
+        }
+        const headerRow = grid[headerIdx];
+        let saldoAwal = 0;
+        const saldoAwalIdx = headerRow.findIndex(c => (c||"").trim() === "Saldo Awal (Rp)");
+        if(saldoAwalIdx !== -1 && headerRow[saldoAwalIdx+1] !== undefined){
+          saldoAwal = parseJumlah(headerRow[saldoAwalIdx+1]);
+        }
+
+        const dataRows = [];
+        for(let i = headerIdx + 1; i < grid.length; i++){
+          const r = grid[i];
+          const tanggalRaw = (r[0]||"").trim();
+          if(!tanggalRaw) break; // berhenti begitu ketemu baris kosong pertama
+          dataRows.push(r);
+        }
+
+        const rows = dataRows
+          .map(r => ({
+            tanggal: parseTanggal(r[0]),
+            jenis: (r[1]||"").trim(),
+            kategori: (r[2]||"").trim(),
+            deskripsi: (r[3]||"").trim(),
+            jumlah: parseJumlah(r[4]),
+            metode: (r[5]||"").trim(),
+            saldo: parseJumlah(r[6]),
+          }))
+          .filter(r => r.tanggal && r.jenis && r.jumlah > 0)
+          .sort((a,b)=> a.tanggal - b.tanggal);
+
+        if(rows.length === 0){
+          showBanner("Tidak ada transaksi yang terbaca dari sheet. Pastikan sheet <code>Transaksi</code> sudah dipublikasikan dan kolomnya sesuai template.");
+        }
+        renderAll(rows, saldoAwal);
+      },
+      error:()=>{
+        showBanner("Gagal memuat data dari Google Sheets. Periksa kembali apakah sheet sudah dipublikasikan (Publish to web) dan URL-nya benar.");
+        renderAll([]);
+      }
+    });
+  }
+
+  function renderAll(rows, saldoAwal){
+    renderRingkasan(rows, saldoAwal || 0);
+    renderKategori(rows);
+    renderTren(rows);
+    renderTransaksi(rows);
+  }
+
+  // ---------- Ringkasan ----------
+  let chartKategoriMini;
+  function renderRingkasan(rows, saldoAwal){
+    const totalIn = rows.filter(r=>r.jenis==="Pemasukan").reduce((s,r)=>s+r.jumlah,0);
+    const totalOut = rows.filter(r=>r.jenis==="Pengeluaran").reduce((s,r)=>s+r.jumlah,0);
+    const saldo = rows.length ? rows[rows.length-1].saldo : saldoAwal;
+    document.getElementById("stat-saldo").textContent = rupiah(saldo);
+    document.getElementById("stat-in").textContent = rupiah(totalIn);
+    document.getElementById("stat-out").textContent = rupiah(totalOut);
+    document.getElementById("stat-in-count").textContent = rows.filter(r=>r.jenis==="Pemasukan").length + " transaksi";
+    document.getElementById("stat-out-count").textContent = rows.filter(r=>r.jenis==="Pengeluaran").length + " transaksi";
+    document.getElementById("stat-saldo-sub").textContent = rows.length ? "Per " + rows[rows.length-1].tanggal.toLocaleDateString("id-ID") : "";
+    document.getElementById("ringkasan-sub").textContent = rows.length ? rows.length + " transaksi tercatat" : "Belum ada transaksi";
+
+    const recent = rows.slice(-6).reverse();
+    const tbody = document.getElementById("tbl-recent");
+    tbody.innerHTML = recent.map(r=>`
+      <tr>
+        <td>${r.tanggal.toLocaleDateString("id-ID")}</td>
+        <td>${r.kategori}</td>
+        <td class="amt ${r.jenis==="Pemasukan"?"in":"out"}">${r.jenis==="Pemasukan"?"+":"-"}${rupiah(r.jumlah)}</td>
+      </tr>`).join("") || `<tr><td colspan="3" style="color:var(--muted); font-size:12px;">Belum ada data</td></tr>`;
+
+    const byCat = {};
+    rows.filter(r=>r.jenis==="Pengeluaran").forEach(r=>{ byCat[r.kategori] = (byCat[r.kategori]||0) + r.jumlah; });
+    const labels = Object.keys(byCat);
+    const values = Object.values(byCat);
+    const total = values.reduce((a,b)=>a+b,0);
+    const legend = document.getElementById("legend-kategori-mini");
+    legend.innerHTML = labels.map((l,i)=>`<span><span class="sw" style="background:${CATEGORY_PALETTE[i%CATEGORY_PALETTE.length]}"></span>${l} (${total? Math.round(byCat[l]/total*100):0}%)</span>`).join("") || "<span style='color:var(--muted)'>Belum ada pengeluaran</span>";
+
+    if(chartKategoriMini) chartKategoriMini.destroy();
+    chartKategoriMini = new Chart(document.getElementById("chartKategoriMini"), {
+      type:"doughnut",
+      data:{ labels, datasets:[{ data: values, backgroundColor: labels.map((_,i)=>CATEGORY_PALETTE[i%CATEGORY_PALETTE.length]), borderColor:"#fff", borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(c)=> c.label + ": " + rupiah(c.parsed) } } } }
+    });
+  }
+
+  // ---------- Kategori ----------
+  let chartKategoriOut, chartKategoriIn;
+  function renderKategori(rows){
+    const byOut = {}, byIn = {};
+    rows.filter(r=>r.jenis==="Pengeluaran").forEach(r=>{ byOut[r.kategori] = (byOut[r.kategori]||0)+r.jumlah; });
+    rows.filter(r=>r.jenis==="Pemasukan").forEach(r=>{ byIn[r.kategori] = (byIn[r.kategori]||0)+r.jumlah; });
+
+    const outLabels = Object.keys(byOut).sort((a,b)=>byOut[b]-byOut[a]);
+    const inLabels = Object.keys(byIn).sort((a,b)=>byIn[b]-byIn[a]);
+
+    document.getElementById("legend-kategori-out").innerHTML = outLabels.length ? "" : "<span style='color:var(--muted)'>Belum ada pengeluaran</span>";
+    document.getElementById("legend-kategori-in").innerHTML = inLabels.length ? "" : "<span style='color:var(--muted)'>Belum ada pemasukan</span>";
+
+    if(chartKategoriOut) chartKategoriOut.destroy();
+    chartKategoriOut = new Chart(document.getElementById("chartKategoriOut"), {
+      type:"bar",
+      data:{ labels:outLabels, datasets:[{ label:"Pengeluaran", data: outLabels.map(l=>byOut[l]), backgroundColor:COLORS.coral, borderRadius:4, maxBarThickness:26 }] },
+      options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>rupiah(c.parsed.x) } } }, scales:{ x:{ ticks:{ callback:(v)=>rupiah(v) } } } }
+    });
+
+    if(chartKategoriIn) chartKategoriIn.destroy();
+    chartKategoriIn = new Chart(document.getElementById("chartKategoriIn"), {
+      type:"bar",
+      data:{ labels:inLabels, datasets:[{ label:"Pemasukan", data: inLabels.map(l=>byIn[l]), backgroundColor:COLORS.gold, borderRadius:4, maxBarThickness:26 }] },
+      options:{ indexAxis:"y", responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>rupiah(c.parsed.x) } } }, scales:{ x:{ ticks:{ callback:(v)=>rupiah(v) } } } }
+    });
+  }
+
+  // ---------- Tren ----------
+  let chartTren, chartSaldo;
+  function renderTren(rows){
+    const monthly = {};
+    rows.forEach(r=>{
+      const key = r.tanggal.getFullYear() + "-" + String(r.tanggal.getMonth()+1).padStart(2,"0");
+      if(!monthly[key]) monthly[key] = { in:0, out:0 };
+      if(r.jenis==="Pemasukan") monthly[key].in += r.jumlah; else monthly[key].out += r.jumlah;
+    });
+    const keys = Object.keys(monthly).sort();
+    const namaBulan = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"];
+    const labels = keys.map(k=>{ const [y,m] = k.split("-"); return namaBulan[parseInt(m)-1] + " " + y; });
+
+    document.getElementById("legend-tren").innerHTML = keys.length ? `
+      <span><span class="sw" style="background:${COLORS.gold}"></span>Pemasukan</span>
+      <span><span class="sw" style="background:${COLORS.coral}"></span>Pengeluaran</span>` : "<span style='color:var(--muted)'>Belum ada data</span>";
+
+    if(chartTren) chartTren.destroy();
+    chartTren = new Chart(document.getElementById("chartTren"), {
+      type:"line",
+      data:{ labels, datasets:[
+        { label:"Pemasukan", data:keys.map(k=>monthly[k].in), borderColor:COLORS.gold, backgroundColor:"transparent", tension:0.25, pointRadius:3 },
+        { label:"Pengeluaran", data:keys.map(k=>monthly[k].out), borderColor:COLORS.coral, backgroundColor:"transparent", tension:0.25, pointRadius:3 },
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>c.dataset.label+": "+rupiah(c.parsed.y) } } }, scales:{ y:{ ticks:{ callback:(v)=>rupiah(v) } } } }
+    });
+
+    if(chartSaldo) chartSaldo.destroy();
+    chartSaldo = new Chart(document.getElementById("chartSaldo"), {
+      type:"line",
+      data:{ labels: rows.map(r=>r.tanggal.toLocaleDateString("id-ID")), datasets:[
+        { label:"Saldo", data: rows.map(r=>r.saldo), borderColor:COLORS.primary, backgroundColor:"rgba(27,67,50,0.08)", fill:true, tension:0.2, pointRadius:0 }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label:(c)=>rupiah(c.parsed.y) } } }, scales:{ x:{ ticks:{ maxTicksLimit:8 } }, y:{ ticks:{ callback:(v)=>rupiah(v) } } } }
+    });
+  }
+
+  // ---------- Transaksi ----------
+  let ALL_ROWS = [];
+  function renderTransaksi(rows){
+    ALL_ROWS = rows;
+    const kategoriSet = [...new Set(rows.map(r=>r.kategori))].sort();
+    const sel = document.getElementById("f-kategori");
+    sel.innerHTML = '<option value="">Semua</option>' + kategoriSet.map(k=>`<option value="${k}">${k}</option>`).join("");
+    applyFilter();
+  }
+
+  function applyFilter(){
+    const jenis = document.getElementById("f-jenis").value;
+    const kategori = document.getElementById("f-kategori").value;
+    const search = document.getElementById("f-search").value.toLowerCase();
+    const filtered = ALL_ROWS.filter(r=>
+      (!jenis || r.jenis===jenis) &&
+      (!kategori || r.kategori===kategori) &&
+      (!search || r.deskripsi.toLowerCase().includes(search))
+    ).slice().reverse();
+
+    const tbody = document.getElementById("tbl-all");
+    tbody.innerHTML = filtered.map(r=>`
+      <tr>
+        <td>${r.tanggal.toLocaleDateString("id-ID")}</td>
+        <td><span class="tag ${r.jenis==="Pemasukan"?"in":"out"}">${r.jenis}</span></td>
+        <td>${r.kategori}</td>
+        <td>${r.deskripsi}</td>
+        <td class="amt ${r.jenis==="Pemasukan"?"in":"out"}">${r.jenis==="Pemasukan"?"+":"-"}${rupiah(r.jumlah)}</td>
+        <td>${r.metode}</td>
+      </tr>`).join("");
+    document.getElementById("empty-note").style.display = filtered.length ? "none" : "block";
+  }
+
+  document.getElementById("f-jenis").addEventListener("change", applyFilter);
+  document.getElementById("f-kategori").addEventListener("change", applyFilter);
+  document.getElementById("f-search").addEventListener("input", applyFilter);
+
+  // ---------- Navigasi sidebar ----------
+  document.querySelectorAll(".nav-item").forEach(item=>{
+    item.addEventListener("click", ()=>{
+      document.querySelectorAll(".nav-item").forEach(i=>i.classList.remove("active"));
+      document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+      item.classList.add("active");
+      document.getElementById(item.dataset.target).classList.add("active");
+    });
+  });
+
+  loadData();
+</script>
+</body>
+</html>
