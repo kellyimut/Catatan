@@ -87,6 +87,32 @@
     color:#8FAB9B;
     line-height:1.6;
   }
+  .refresh-btn{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    padding:9px 10px;
+    border-radius:8px;
+    border:1px solid rgba(255,255,255,0.22);
+    background:rgba(255,255,255,0.06);
+    color:#EDF3EE;
+    font-family:var(--font-body);
+    font-size:12px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease;
+  }
+  .refresh-btn:hover{background:rgba(255,255,255,0.14);}
+  .refresh-btn:disabled{opacity:0.6; cursor:default;}
+  .refresh-icon{
+    display:inline-block;
+    font-size:14px;
+    line-height:1;
+  }
+  .refresh-icon.spinning{animation:spin 0.8s linear infinite;}
+  @keyframes spin{ from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
 
   .main{flex:1; padding:36px 44px; max-width:1180px;}
 
@@ -296,7 +322,11 @@
       <li class="nav-item" data-target="transaksi"><span class="nav-dot"></span>Transaksi</li>
     </ul>
     <div class="sidebar-foot">
-      Data diambil langsung dari Google Sheets. Perbarui sheet, muat ulang halaman ini untuk melihat angka terbaru.
+      <p style="margin-bottom:12px;">Data diambil langsung dari Google Sheets.</p>
+      <button id="btn-refresh" class="refresh-btn">
+        <span id="refresh-icon" class="refresh-icon">&#8635;</span> Perbarui data
+      </button>
+      <div id="last-updated" style="margin-top:10px;">Belum dimuat</div>
     </div>
   </nav>
 
@@ -455,6 +485,24 @@
     b.innerHTML = msg;
     b.style.display = "block";
   }
+  function hideBanner(){
+    document.getElementById("status-banner").style.display = "none";
+  }
+
+  function setRefreshing(isLoading){
+    const btn = document.getElementById("btn-refresh");
+    const icon = document.getElementById("refresh-icon");
+    if(!btn) return;
+    btn.disabled = isLoading;
+    icon.classList.toggle("spinning", isLoading);
+  }
+
+  function markUpdated(){
+    const el = document.getElementById("last-updated");
+    if(!el) return;
+    const now = new Date();
+    el.textContent = "Terakhir diperbarui: " + now.toLocaleTimeString("id-ID", {hour:"2-digit", minute:"2-digit"});
+  }
 
   function loadData(){
     if(!CSV_URL || CSV_URL.indexOf("PASTE_CSV_URL") === 0){
@@ -462,11 +510,18 @@
       renderAll([]);
       return;
     }
-    Papa.parse(CSV_URL, {
+    hideBanner();
+    setRefreshing(true);
+    // Tambahkan parameter waktu supaya browser/Google tidak mengembalikan
+    // versi CSV yang sudah di-cache, jadi data selalu yang terbaru
+    const urlSegar = CSV_URL + (CSV_URL.includes("?") ? "&" : "?") + "_ts=" + Date.now();
+    Papa.parse(urlSegar, {
       download:true,
       header:false,
       skipEmptyLines:false,
       complete:(res)=>{
+        setRefreshing(false);
+        markUpdated();
         const grid = res.data;
         // Cari baris header tabel (kolom pertama = "Tanggal"), karena sheet
         // punya baris judul di atasnya
@@ -510,6 +565,8 @@
         renderAll(rows, saldoAwal);
       },
       error:()=>{
+        setRefreshing(false);
+        markUpdated();
         showBanner("Gagal memuat data dari Google Sheets. Periksa kembali apakah sheet sudah dipublikasikan (Publish to web) dan URL-nya benar.");
         renderAll([]);
       }
@@ -673,6 +730,8 @@
       document.getElementById(item.dataset.target).classList.add("active");
     });
   });
+
+  document.getElementById("btn-refresh").addEventListener("click", loadData);
 
   // ---------- Login ----------
   // Catatan: ini hanya penghalang sederhana di sisi browser, bukan
