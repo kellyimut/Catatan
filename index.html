@@ -203,6 +203,61 @@
 
   .empty-note{font-size:13px; color:var(--muted); padding:30px 0; text-align:center;}
 
+  #login-screen{
+    position:fixed; inset:0;
+    background:var(--primary);
+    display:flex; align-items:center; justify-content:center;
+    z-index:100;
+  }
+  .login-card{
+    background:var(--surface);
+    border-radius:14px;
+    padding:36px 34px;
+    width:100%;
+    max-width:340px;
+    box-shadow:0 12px 32px rgba(0,0,0,0.18);
+  }
+  .login-card h1{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:600;
+    color:var(--primary);
+    margin-bottom:4px;
+  }
+  .login-card p{font-size:13px; color:var(--muted); margin-bottom:22px;}
+  .login-card label{display:block; font-size:12px; color:var(--ink-soft); margin-bottom:6px; margin-top:14px;}
+  .login-card input{
+    width:100%;
+    font-family:var(--font-body);
+    font-size:14px;
+    padding:10px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--bg);
+    color:var(--ink);
+  }
+  .login-card button{
+    width:100%;
+    margin-top:22px;
+    padding:11px;
+    border:none;
+    border-radius:8px;
+    background:var(--primary);
+    color:#fff;
+    font-family:var(--font-body);
+    font-size:14px;
+    font-weight:500;
+    cursor:pointer;
+    transition:background 0.15s ease;
+  }
+  .login-card button:hover{background:var(--primary-light);}
+  .login-error{
+    display:none;
+    font-size:12px;
+    color:var(--coral);
+    margin-top:12px;
+  }
+
   @media (max-width:900px){
     .layout{flex-direction:column;}
     .sidebar{width:100%; height:auto; position:relative; padding:18px 20px;}
@@ -215,7 +270,22 @@
 </head>
 <body>
 
-<div class="layout">
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Catatan Keuangan</h1>
+    <p>Masuk untuk melihat dashboard.</p>
+    <form id="login-form">
+      <label for="login-user">Nama pengguna</label>
+      <input type="text" id="login-user" autocomplete="username" autofocus>
+      <label for="login-pass">Kata sandi</label>
+      <input type="password" id="login-pass" autocomplete="current-password">
+      <div class="login-error" id="login-error">Nama pengguna atau kata sandi salah.</div>
+      <button type="submit">Masuk</button>
+    </form>
+  </div>
+</div>
+
+<div class="layout" id="app-content" style="display:none;">
   <nav class="sidebar">
     <div class="brand">Catatan Keuangan</div>
     <div class="brand-sub">Ringkasan pemasukan &amp; pengeluaran</div>
@@ -604,7 +674,37 @@
     });
   });
 
-  loadData();
+  // ---------- Login ----------
+  // Catatan: ini hanya penghalang sederhana di sisi browser, bukan
+  // keamanan sungguhan (siapapun bisa lihat kredensial ini lewat
+  // "view page source"). Cocok untuk mencegah orang iseng, bukan untuk
+  // data yang benar-benar rahasia.
+  const AUTH_USER = "Tetot";
+  const AUTH_PASS = "Bismillah3kali";
+  const AUTH_KEY = "catatan_keuangan_auth";
+
+  function showApp(){
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-content").style.display = "";
+    loadData();
+  }
+
+  if(sessionStorage.getItem(AUTH_KEY) === "1"){
+    showApp();
+  } else {
+    document.getElementById("login-form").addEventListener("submit", (e)=>{
+      e.preventDefault();
+      const u = document.getElementById("login-user").value.trim();
+      const p = document.getElementById("login-pass").value;
+      if(u === AUTH_USER && p === AUTH_PASS){
+        sessionStorage.setItem(AUTH_KEY, "1");
+        document.getElementById("login-error").style.display = "none";
+        showApp();
+      } else {
+        document.getElementById("login-error").style.display = "block";
+      }
+    });
+  }
 </script>
 </body>
 </html>
